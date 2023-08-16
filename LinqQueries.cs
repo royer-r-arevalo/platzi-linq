@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 
 namespace LINQ
@@ -6,11 +7,24 @@ namespace LINQ
   public class LinqQueries
   {
     private readonly List<Book> _books;
+    private readonly List<Animal> _animals;
     private const string FILE_PATH = "books.json";
 
     public LinqQueries()
     {
-      _books = new List<Book>();
+      _animals = new()
+       {
+           new Animal() { Name = "Hormiga", Color = "Rojo" },
+           new Animal() { Name = "Lobo", Color = "Gris" },
+           new Animal() { Name = "Elefante", Color = "Gris" },
+           new Animal() { Name = "Pantegra", Color = "Negro" },
+           new Animal() { Name = "Gato", Color = "Negro" },
+           new Animal() { Name = "Iguana", Color = "Verde" },
+           new Animal() { Name = "Sapo", Color = "Verde" },
+           new Animal() { Name = "Camaleon", Color = "Verde" },
+           new Animal() { Name = "Gallina", Color = "Blanco" }
+       };
+      _books = new();
       if (File.Exists(FILE_PATH))
       {
         using var reader = new StreamReader(FILE_PATH);
@@ -79,7 +93,7 @@ namespace LINQ
     public IEnumerable<Book> GetBooksPublishedRecently(int countBooksToShow, string category)
     {
       return _books.Where(book => book.Categories.Contains(category))
-                  .OrderByDescending(book => book.PublishedDate) 
+                  .OrderByDescending(book => book.PublishedDate)
                   .Take(countBooksToShow);
     }
 
@@ -90,7 +104,7 @@ namespace LINQ
     /// <returns></returns>
     public IEnumerable<Book> GetThirdAndQuaterBook(int pageCount)
     {
-      return _books.Where(book => book?.PageCount > pageCount) 
+      return _books.Where(book => book?.PageCount > pageCount)
                   .Take(4)
                   .Skip(2);
     }
@@ -100,31 +114,80 @@ namespace LINQ
     /// </summary>
     /// <param name="count"></param>
     /// <returns></returns>
-    public IEnumerable<dynamic> GetBooksWithBasicInformation(int count) 
+    public IEnumerable<Book> GetBooksWithBasicInformation(int count)
     {
-      return _books.Take(count).Select(book => new { book.Title, book.PageCount });
+      return _books.Take(count).Select(book => new Book
+      {
+        Title = book.Title,
+        PageCount = book.PageCount
+      });
     }
 
-    public static void Animals()
+    /// <summary>
+    /// Count Operator
+    /// </summary>
+    /// <param name="rangeOne"></param>
+    /// <param name="rangeTwo"></param>
+    /// <returns></returns>
+    public int GetCountBooksBetweenRangePages(int rangeOne, int rangeTwo)
     {
-      List<Animal> animals = new()
-       {
-           new Animal() { Name = "Hormiga", Color = "Rojo" },
-           new Animal() { Name = "Lobo", Color = "Gris" },
-           new Animal() { Name = "Elefante", Color = "Gris" },
-           new Animal() { Name = "Pantegra", Color = "Negro" },
-           new Animal() { Name = "Gato", Color = "Negro" },
-           new Animal() { Name = "Iguana", Color = "Verde" },
-           new Animal() { Name = "Sapo", Color = "Verde" },
-           new Animal() { Name = "Camaleon", Color = "Verde" },
-           new Animal() { Name = "Gallina", Color = "Blanco" }
-       };
+      return _books.Count(book => book.PageCount >= rangeOne && book.PageCount <= rangeTwo);
+    }
 
+    public DateTime? GetMinPublishedDate() => _books.Min(book => book.PublishedDate);
+    public int? GetMaxPageCount() => _books.Max(book => book.PageCount);
+    public Book? GetBookWithMinPages() => _books.Where(book => book.PageCount > 0).MinBy(book => book.PageCount);
+    public Book? GetBookWithPublishedDateReciently() => _books.MaxBy(book => book.PublishedDate);
+    public int? GetSumBookPagesBetweenPageCount(int rageOne, int rangeTwo)
+    {
+      return _books.Where(book => book.PageCount >= rageOne && book.PageCount <= rangeTwo)
+                   .Sum(book => book.PageCount);
+    }
+
+
+    public string GetBookTitlesSince(int year = 2015)
+    => string.Join(" - ", _books.Where(book => book.PublishedDate?.Year > year).Select(book => book.Title));
+
+    public string GetBookTitlesSince2(int year = 2015)
+    => _books.Where(book => book.PublishedDate?.Year > year)
+             .Aggregate("", (acum, next) => !string.IsNullOrEmpty(acum) ? $" - {next.Title}" : next.Title);
+
+    public double GetAvarageTitleLengthCharacteres() => _books.Average(book => book.Title.Length);
+
+    public IEnumerable<IGrouping<int, Book>> GetBooksByYear(int minYear = 2000)
+    => _books.Where(book => book?.PublishedDate?.Year >= minYear)
+             .GroupBy(book => book.PublishedDate.Value.Year);
+
+    public ILookup<char,Book> GetBookDictionary() 
+    => _books.ToLookup(book => book.Title[0], p => p);
+
+    public IEnumerable<Book> GetBooksJoin()
+    {
+      return _books.Where(book => book.PageCount > 500)
+      .Join(_books.Where(book2 => book2.PublishedDate.Value.Year > 2005), book => book.Title, book2 => book2.Title, (book1, book2) => book1);
+    }
+
+    public void Animals()
+    {
+      List<Animal> animals = _animals;
       char[] vocals = new[] { 'A', 'E', 'I', 'O', 'U' };
       animals = animals.Where(animal => animal.Color.Equals("Verde") && vocals.Contains(animal.Name[0])).OrderBy(animal => animal.Name).ToList();
 
       Console.WriteLine("{0,-20} {1, 10}\n", "Animal", "Color");
       animals.ForEach(animal => Console.WriteLine(animal.ToString()));
+    }
+
+    public void AnimalsGropyByColor() 
+    {
+      IEnumerable<IGrouping<string?, Animal>> groups = _animals.GroupBy(animal => animal.Color);
+      foreach (var group in groups)
+      {
+        Console.WriteLine($".........................{group.Key}........................");
+        foreach (var animal in group)
+        {
+           Console.WriteLine("{0,-20} {1, 10}", animal.Name, animal.Color);
+        }
+      }
     }
   }
 }
